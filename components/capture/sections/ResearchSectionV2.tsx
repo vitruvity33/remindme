@@ -163,9 +163,13 @@ export function ResearchSectionV2({
       console.log('📡 Calling /api/research/analyze...');
       
       // Analyze the interest
+      const { data: { session } } = await supabase.auth.getSession();
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           type: 'interest',
           topic: newInterest,
@@ -180,7 +184,6 @@ export function ResearchSectionV2({
 
       // Save to database
       console.log('💾 Saving to database...');
-      const { data: { session } } = await supabase.auth.getSession();
       const saveResponse = await fetch('/api/research/save', {
         method: 'POST',
         headers: {
@@ -249,9 +252,13 @@ export function ResearchSectionV2({
     setIsResearching(true);
     try {
       console.log('📡 Calling /api/research/analyze for company...');
+      const { data: { session } } = await supabase.auth.getSession();
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           type: 'company',
           companyName: companyToResearch,
@@ -264,7 +271,6 @@ export function ResearchSectionV2({
       const analyzeData = await analyzeResponse.json();
       if (!analyzeData.success) throw new Error(analyzeData.error);
 
-      const { data: { session } } = await supabase.auth.getSession();
       const saveResponse = await fetch('/api/research/save', {
         method: 'POST',
         headers: {
@@ -327,9 +333,13 @@ export function ResearchSectionV2({
 
     setIsResearching(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           type: 'tech_stack',
           companyName: companyToResearch,
@@ -345,7 +355,6 @@ export function ResearchSectionV2({
       const analyzeData = await analyzeResponse.json();
       if (!analyzeData.success) throw new Error(analyzeData.error);
 
-      const { data: { session } } = await supabase.auth.getSession();
       const saveResponse = await fetch('/api/research/save', {
         method: 'POST',
         headers: {
@@ -404,9 +413,13 @@ export function ResearchSectionV2({
       }
 
       // Re-analyze with the original query and context
+      const { data: { session } } = await supabase.auth.getSession();
       const analyzeResponse = await fetch('/api/research/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           type: result.type,
           topic: result.type === 'interest' ? result.topic : undefined,
@@ -426,7 +439,6 @@ export function ResearchSectionV2({
       if (!analyzeData.success) throw new Error(analyzeData.error);
 
       // Update in database
-      const { data: { session } } = await supabase.auth.getSession();
       const saveResponse = await fetch('/api/research/save', {
         method: 'POST',
         headers: {

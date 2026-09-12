@@ -742,9 +742,13 @@ export default function Home() {
 
     try {
       // Call OpenAI API to structure only the user's notes (not LinkedIn data)
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch("/api/organize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ 
           rawText: captureText,
           contextType: contextType,
@@ -1056,9 +1060,13 @@ export default function Home() {
     setIsParsing(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch("/api/parse-linkedin", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ profileText: linkedInProfilePaste }),
       });
 
@@ -1103,7 +1111,10 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
 
         const organizeResponse = await fetch("/api/organize", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`
+          },
           body: JSON.stringify({ 
             rawText: profileSummary,
             contextType: contextType,
@@ -1157,10 +1168,14 @@ ${captureText ? `\nAdditional Notes:\n${captureText}` : ''}`;
     const parsedProfiles: any[] = [];
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       for (const url of urls) {
         const response = await fetch("/api/parse-linkedin", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`
+          },
           body: JSON.stringify({ 
             profileText: `LinkedIn URL: ${url.trim()}`,
             isUrl: true 

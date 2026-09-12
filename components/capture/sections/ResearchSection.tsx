@@ -67,9 +67,13 @@ export function ResearchSection({
 
     setIsGenerating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/research/suggest', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           userInput: researchInput,
           includeLinkedIn,
