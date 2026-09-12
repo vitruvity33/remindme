@@ -1,13 +1,34 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { requireBearerUser } from "@/lib/auth/requireBearerUser";
+import { guardRequest } from "@/lib/api/guard";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+
+function openai(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
 
 export async function POST(request: Request) {
   try {
-    const { profileText } = await request.json();
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+
+    const guarded = await guardRequest<{ profileText?: string }>({
+      request,
+      userId: auth.user.id,
+      module: "parse-linkedin",
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+
+    const { profileText } = guarded.body;
 
     if (!profileText) {
       return NextResponse.json(
@@ -16,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await openai().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {

@@ -1,43 +1,29 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Pinecone } from "@pinecone-database/pinecone";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { requireBearerUser } from "@/lib/auth/requireBearerUser";
+import { guardRequest } from "@/lib/api/guard";
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: memoryId } = await params;
-
-    // Get authenticated user
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
+    const { user, supabase } = auth;
 
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+    const guarded = await guardRequest({
+      request,
+      userId: user.id,
+      module: "delete-memory",
     });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid authentication" },
-        { status: 401 }
-      );
+    if (guarded instanceof NextResponse) {
+      return guarded;
     }
+
+    const { id: memoryId } = await params;
 
     // Delete memory_people links first
     await supabase

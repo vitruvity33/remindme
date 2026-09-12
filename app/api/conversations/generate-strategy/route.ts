@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { guardRequest } from '@/lib/api/guard';
 import OpenAI from 'openai';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -8,6 +9,17 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+interface StrategyRequest {
+  business_id?: string;
+  meeting_id?: string;
+  meeting_type?: string;
+  situation?: string;
+  goal?: string;
+  context_sources: string[];
+  clarifying_qa?: { question: string; answer: string }[];
+  attendee_ids?: string[];
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,8 +45,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { business_id, meeting_id, meeting_type, situation, goal, context_sources, clarifying_qa, attendee_ids } = body;
+    const guarded = await guardRequest<StrategyRequest>({
+      request,
+      userId: user.id,
+      module: 'conversations-generate-strategy',
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+    const { business_id, meeting_id, meeting_type, situation, goal, context_sources, clarifying_qa, attendee_ids } = guarded.body;
 
     if (!business_id && !meeting_id) {
       return NextResponse.json({ error: 'Either business_id or meeting_id is required' }, { status: 400 });

@@ -1,24 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { requireBearerUser } from '@/lib/auth/requireBearerUser';
+import { guardRequest } from '@/lib/api/guard';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+let perplexityClient: OpenAI | null = null;
 
-const perplexity = new OpenAI({
-  apiKey: process.env.PERPLEXITY_API_KEY,
-  baseURL: 'https://api.perplexity.ai',
-  defaultHeaders: {
-    'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-  },
-});
-
-// Check API keys on startup
-if (!process.env.OPENAI_API_KEY) {
-  console.error('⚠️ OPENAI_API_KEY is not set in environment variables');
+function openai(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
 }
-if (!process.env.PERPLEXITY_API_KEY) {
-  console.error('⚠️ PERPLEXITY_API_KEY is not set in environment variables');
+
+function perplexity(): OpenAI {
+  if (!perplexityClient) {
+    perplexityClient = new OpenAI({
+      apiKey: process.env.PERPLEXITY_API_KEY,
+      baseURL: 'https://api.perplexity.ai',
+      defaultHeaders: {
+        'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+      },
+    });
+  }
+  return perplexityClient;
 }
 
 interface AnalyzeRequest {
@@ -42,7 +47,21 @@ interface AnalyzeRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check API keys first
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+
+    const guarded = await guardRequest<AnalyzeRequest>({
+      request,
+      userId: auth.user.id,
+      module: 'research-analyze',
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+
+    // Check API keys
     if (!process.env.PERPLEXITY_API_KEY) {
       throw new Error('Perplexity API key is not configured. Please add PERPLEXITY_API_KEY to your .env.local file.');
     }
@@ -50,7 +69,7 @@ export async function POST(request: NextRequest) {
       throw new Error('OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env.local file.');
     }
 
-    const body: AnalyzeRequest = await request.json();
+    const body = guarded.body;
     const { type, topic, companyName, companyLinkedInUrl, customInstructions, contextData, personContext } = body;
 
     console.log(`🔍 Analyzing ${type}:`, topic || companyName);
@@ -177,7 +196,7 @@ async function analyzeInterest(topic: string, contextData?: any) {
     // Fallback to OpenAI
     const prompt = `Research "${topic}" and provide a brief summary (2-3 sentences) about recent news or updates. Include 3-4 example links where someone could learn more (format as markdown links).`;
     
-    const response = await openai.chat.completions.create({
+    const response = await openai().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -263,7 +282,7 @@ Provide 5-7 relevant links including:
   
   const prompt = basePrompt;
 
-  const response = await perplexity.chat.completions.create({
+  const response = await perplexity().chat.completions.create({
     model: 'sonar-pro',
     messages: [
       {
@@ -316,7 +335,7 @@ Generate a focused research query to find:
 
 Return a concise search query (1-2 sentences).`;
 
-  const structureResponse = await openai.chat.completions.create({
+  const structureResponse = await openai().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       {
@@ -351,7 +370,7 @@ Format as clear sections. Include 6-8 relevant links:
 - Tech conference talks
 - LinkedIn posts from engineers`;
 
-  const researchResponse = await perplexity.chat.completions.create({
+  const researchResponse = await perplexity().chat.completions.create({
     model: 'sonar-pro',
     messages: [
       {
@@ -383,7 +402,7 @@ Return JSON with this structure:
 
 Only include technologies explicitly mentioned. Return valid JSON only.`;
 
-  const parseResponse = await openai.chat.completions.create({
+  const parseResponse = await openai().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       {

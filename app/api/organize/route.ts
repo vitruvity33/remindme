@@ -1,13 +1,46 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { requireBearerUser } from "@/lib/auth/requireBearerUser";
+import { guardRequest } from "@/lib/api/guard";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+
+function openai(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
+
+interface OrganizeRequest {
+  rawText?: string;
+  contextType?: string;
+  persistentEvent?: string;
+  sectionName?: string;
+  panelParticipants?: string;
+  linkedInUrls?: string;
+  companyLinkedInUrls?: string;
+  parsedProfileData?: Record<string, unknown>;
+  parsedProfilesArray?: Record<string, unknown>[];
+}
 
 export async function POST(request: Request) {
   try {
-    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, parsedProfileData, parsedProfilesArray } = await request.json();
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+
+    const guarded = await guardRequest<OrganizeRequest>({
+      request,
+      userId: auth.user.id,
+      module: "organize",
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+
+    const { rawText, contextType, persistentEvent, sectionName, panelParticipants, linkedInUrls, companyLinkedInUrls, parsedProfileData, parsedProfilesArray } = guarded.body;
 
     if (!rawText) {
       return NextResponse.json(
@@ -37,7 +70,7 @@ export async function POST(request: Request) {
       contextPrompt += `\n\nCompany LinkedIn URLs provided:\n${companyLinkedInUrls}\n\nExtract company names from these URLs and associate them with the people mentioned. Store these company URLs for later use with company insights scraping.`;
     }
 
-    const completion = await openai.chat.completions.create({
+    const completion = await openai().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
