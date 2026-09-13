@@ -1,49 +1,29 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Pinecone } from "@pinecone-database/pinecone";
 import OpenAI from "openai";
 import { tagConversationOrMemory } from "@/lib/ai-tagger";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { requireBearerUser } from "@/lib/auth/requireBearerUser";
+import { guardRequest } from "@/lib/api/guard";
 
 export async function POST(request: Request) {
   try {
-    const { rawText, structuredData, personId } = await request.json();
-    console.log("📝 Received personId for update:", personId);
-
-    // Get authenticated user from request
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
     }
-
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create Supabase client with the user's access token
-    // This ensures RLS policies work correctly
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    });
-    
-    // Verify user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Invalid authentication" },
-        { status: 401 }
-      );
-    }
-
+    const { user, supabase } = auth;
     const userId = user.id;
+
+    const guarded = await guardRequest<{
+      rawText?: string;
+      structuredData: any;
+      personId?: string;
+    }>({ request, userId, module: "save-memory" });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+    const { structuredData, personId } = guarded.body;
+    console.log("📝 Received personId for update:", personId);
 
     // 1. Create or get event if mentioned
     let eventId = null;

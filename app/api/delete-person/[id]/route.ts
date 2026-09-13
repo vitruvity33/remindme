@@ -1,49 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Pinecone } from "@pinecone-database/pinecone";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { requireBearerUser } from "@/lib/auth/requireBearerUser";
 
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+    const { user, supabase } = auth;
+
     const { id: personId } = await params;
     console.log("🗑️ Delete person API called for:", personId);
-
-    // Get authenticated user from request
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      console.error("❌ No auth header");
-      return NextResponse.json(
-        { error: "Not authenticated" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Create Supabase client with user's token so RLS works
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    });
-
-    // Verify user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      console.error("❌ Auth error:", authError);
-      return NextResponse.json(
-        { error: "Invalid authentication" },
-        { status: 401 }
-      );
-    }
 
     const userId = user.id;
     console.log("✅ Authenticated user:", userId);

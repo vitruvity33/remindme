@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { requireBearerUser } from '@/lib/auth/requireBearerUser';
+import { guardRequest } from '@/lib/api/guard';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let openaiClient: OpenAI | null = null;
+let perplexityClient: OpenAI | null = null;
 
-const perplexity = new OpenAI({
-  apiKey: process.env.PERPLEXITY_API_KEY,
-  baseURL: 'https://api.perplexity.ai',
-});
+function openai(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
+
+function perplexity(): OpenAI {
+  if (!perplexityClient) {
+    perplexityClient = new OpenAI({
+      apiKey: process.env.PERPLEXITY_API_KEY,
+      baseURL: 'https://api.perplexity.ai',
+    });
+  }
+  return perplexityClient;
+}
 
 interface ResearchInput {
   userInput: string;
@@ -39,7 +52,21 @@ interface ResearchSuggestion {
 
 export async function POST(request: NextRequest) {
   try {
-    const body: ResearchInput = await request.json();
+    const auth = await requireBearerUser(request);
+    if (auth instanceof NextResponse) {
+      return auth;
+    }
+
+    const guarded = await guardRequest<ResearchInput>({
+      request,
+      userId: auth.user.id,
+      module: 'research-suggest',
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+
+    const body = guarded.body;
     const { userInput, includeLinkedIn, includeConversations, includeMemories, linkedInData, conversations, memories } = body;
 
     // Step 1: Use OpenAI to analyze context and extract key topics
@@ -80,7 +107,7 @@ Return as JSON array with format:
 ]`;
 
     console.log('🔍 Analyzing context with OpenAI...');
-    const analysisResponse = await openai.chat.completions.create({
+    const analysisResponse = await openai().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
@@ -122,7 +149,7 @@ Return as JSON array with format:
 
 Focus on current, relevant information that would help someone understand this topic for conversation.`;
 
-        const perplexityResponse = await perplexity.chat.completions.create({
+        const perplexityResponse = await perplexity().chat.completions.create({
           model: 'sonar-pro',
           messages: [
             {

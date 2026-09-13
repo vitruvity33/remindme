@@ -58,6 +58,25 @@ The app works fully offline for UI development. Database and AI features will be
 - GPT-4 for memory structuring
 - Q&A chat interface
 
+## Environment Variables
+
+### Server-only variables
+
+These are read only inside API route handlers and must never be exposed to the browser.
+None of them may ever be prefixed with `NEXT_PUBLIC_` — that prefix inlines the value into
+the client bundle, publishing the credential to anyone who loads the app.
+
+| Variable | Used for |
+| --- | --- |
+| `OPENAI_API_KEY` | OpenAI calls (organize, parse-linkedin, research, conversations, workspace AI) |
+| `PERPLEXITY_API_KEY` | Perplexity search/chat in the research routes |
+| `PINECONE_API_KEY` | Pinecone vector upserts and deletes |
+| `PINECONE_INDEX_NAME` | Pinecone index selection |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase access that bypasses RLS (`/api/decide/habits/reorder`) |
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_APP_URL` are the
+only variables intended to reach the client. See `env.example` for the full list.
+
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)

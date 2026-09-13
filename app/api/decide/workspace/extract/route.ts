@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { guardRequest } from '@/lib/api/guard';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -28,8 +29,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { text } = body;
+    const guarded = await guardRequest<{ text?: string }>({
+      request,
+      userId: user.id,
+      module: 'decide-workspace-extract',
+    });
+    if (guarded instanceof NextResponse) {
+      return guarded;
+    }
+    const { text } = guarded.body;
 
     if (!text || text.trim() === '') {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
