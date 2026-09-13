@@ -37,7 +37,45 @@ export function TasksTab({ projectId }: TasksTabProps) {
 
       const result = await response.json();
       if (result.success) {
-        const tasksData = result.data || [];
+        let tasksData = result.data || [];
+        
+        // Sync completion status from workspace todos
+        const workspaceTaskIds = tasksData
+          .filter((t: ProjectTask) => t.workspace_todo_id)
+          .map((t: ProjectTask) => t.workspace_todo_id);
+        
+        if (workspaceTaskIds.length > 0) {
+          const { data: workspaceTodos } = await supabase
+            .from('todo_workspace')
+            .select('id, completed')
+            .in('id', workspaceTaskIds);
+          
+          if (workspaceTodos) {
+            const completionMap = new Map(workspaceTodos.map(wt => [wt.id, wt.completed]));
+            
+            tasksData = tasksData.map((task: ProjectTask) => {
+              if (task.workspace_todo_id && completionMap.has(task.workspace_todo_id)) {
+                const workspaceCompleted = completionMap.get(task.workspace_todo_id);
+                // Sync workspace completion to project task if different
+                if (workspaceCompleted !== task.completed) {
+                  // Update in database
+                  fetch(`/api/decide/projects/${projectId}/tasks/${task.id}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ completed: workspaceCompleted }),
+                  });
+                  
+                  return { ...task, completed: workspaceCompleted };
+                }
+              }
+              return task;
+            });
+          }
+        }
+        
         setTasks(buildTaskHierarchy(tasksData));
       }
     } catch (error) {
@@ -145,6 +183,61 @@ export function TasksTab({ projectId }: TasksTabProps) {
       }
     } catch (error) {
       console.error('Error toggling task completion:', error);
+    }
+  };
+
+  const handlePushTaskToWorkspace = async (taskId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Not authenticated. Please refresh the page.');
+        return;
+      }
+
+      const flatTasks = getAllTasks(tasks);
+      const task = flatTasks.find(t => t.id === taskId);
+      if (!task) return;
+
+      // Create workspace todo with status='ready'
+      const workspaceResponse = await fetch('/api/decide/workspace', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          text: task.text,
+          status: 'ready',
+          source_type: 'project',
+          source_id: projectId,
+        }),
+      });
+
+      const workspaceResult = await workspaceResponse.json();
+      if (!workspaceResult.success || !workspaceResult.data) {
+        alert('Failed to push task to workspace.');
+        return;
+      }
+
+      const workspaceTodoId = workspaceResult.data.id;
+
+      // Mark project task as pushed
+      await fetch(`/api/decide/projects/${projectId}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          pushed_to_workspace: true,
+          workspace_todo_id: workspaceTodoId,
+        }),
+      });
+
+      await fetchTasks();
+    } catch (error) {
+      console.error('Error pushing task to workspace:', error);
+      alert('Failed to push task. Please try again.');
     }
   };
 
@@ -390,19 +483,38 @@ export function TasksTab({ projectId }: TasksTabProps) {
               autoFocus
             />
           ) : (
-            <p 
-              className={`flex-1 text-sm cursor-pointer ${task.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400'}`}
-              onClick={() => {
-                setEditingTextTaskId(task.id);
-                setEditingText(task.text);
-              }}
-              title="Click to edit"
-            >
-              {task.text}
-            </p>
+            <div className="flex-1 flex items-center gap-2">
+              <p 
+                className={`text-sm cursor-pointer ${task.completed ? 'line-through text-gray-500' : 'text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400'}`}
+                onClick={() => {
+                  setEditingTextTaskId(task.id);
+                  setEditingText(task.text);
+                }}
+                title="Click to edit"
+              >
+                {task.text}
+              </p>
+              {task.pushed_to_workspace && (
+                <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-full font-medium">
+                  Scheduled
+                </span>
+              )}
+            </div>
           )}
 
           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            {!task.pushed_to_workspace && (
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await handlePushTaskToWorkspace(task.id);
+                }}
+                className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 font-medium"
+                title="Push to Ready for Scheduling"
+              >
+                Ready
+              </button>
+            )}
             <button
               onClick={() => setEditingTaskId(task.id)}
               className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900 rounded text-blue-600 text-xs"

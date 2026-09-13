@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Project } from '@/lib/types/decide';
+import { supabase } from '@/lib/supabase';
 
 interface ProjectsListProps {
   projects: Project[];
@@ -9,6 +10,7 @@ interface ProjectsListProps {
   onSelectProject: (project: Project) => void;
   onCreateProject: (name: string, description?: string) => Promise<void>;
   onDeleteProject: (projectId: string) => Promise<void>;
+  onReorderProjects: (reorderedProjects: Project[]) => void;
   loading: boolean;
 }
 
@@ -18,11 +20,13 @@ export function ProjectsList({
   onSelectProject,
   onCreateProject,
   onDeleteProject,
+  onReorderProjects,
   loading,
 }: ProjectsListProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -113,14 +117,30 @@ export function ProjectsList({
         </div>
       ) : (
         <div className="space-y-2">
-          {projects.map((project) => (
+          {projects.map((project, index) => (
             <div
               key={project.id}
-              className={`group relative p-4 rounded-lg cursor-pointer transition-all ${
+              draggable
+              onDragStart={() => setDraggedIndex(index)}
+              onDragOver={(e) => {
+                e.preventDefault();
+              }}
+              onDrop={async () => {
+                if (draggedIndex === null || draggedIndex === index) return;
+                
+                const reordered = [...projects];
+                const [removed] = reordered.splice(draggedIndex, 1);
+                reordered.splice(index, 0, removed);
+                
+                onReorderProjects(reordered);
+                setDraggedIndex(null);
+              }}
+              onDragEnd={() => setDraggedIndex(null)}
+              className={`group relative p-4 rounded-lg cursor-move transition-all ${
                 selectedProject?.id === project.id
                   ? 'bg-purple-100 dark:bg-purple-900/30 border-2 border-purple-500'
                   : 'bg-gray-50 dark:bg-gray-700 border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600'
-              }`}
+              } ${draggedIndex === index ? 'opacity-50' : ''}`}
               onClick={() => onSelectProject(project)}
             >
               <div className="flex items-start gap-3">

@@ -100,6 +100,32 @@ export function ProjectsContainer() {
     }
   };
 
+  const handleReorderProjects = async (reorderedProjects: Project[]) => {
+    // Optimistically update UI
+    setProjects(reorderedProjects);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+
+      // Update order_index for each project
+      for (let i = 0; i < reorderedProjects.length; i++) {
+        await fetch(`/api/decide/projects/${reorderedProjects[i].id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ order_index: i }),
+        });
+      }
+    } catch (error) {
+      console.error('Error reordering projects:', error);
+      // Refresh to restore correct order
+      await fetchProjects();
+    }
+  };
+
   return (
     <div className="container mx-auto p-6">
       {/* Page Header */}
@@ -122,6 +148,7 @@ export function ProjectsContainer() {
             onSelectProject={setSelectedProject}
             onCreateProject={handleCreateProject}
             onDeleteProject={handleDeleteProject}
+            onReorderProjects={handleReorderProjects}
             loading={loading}
           />
         </div>

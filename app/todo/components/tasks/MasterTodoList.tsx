@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { WorkspaceTodo, Project } from '@/lib/types/decide';
 import { MeetingTasksPanel } from './MeetingTasksPanel';
 import { ProjectTasksPanel } from './ProjectTasksPanel';
+import { RelationshipTasksPanel } from './RelationshipTasksPanel';
 
 interface MasterTodoListProps {
   excludeIds?: Set<string>;
@@ -17,7 +18,7 @@ export function MasterTodoList({ excludeIds, refreshKey }: MasterTodoListProps) 
   const [quickInput, setQuickInput] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'ready' | 'projects' | 'meetings'>(() => {
+  const [filter, setFilter] = useState<'all' | 'ready' | 'projects' | 'meetings' | 'relationships'>(() => {
     // Check if user was just working with meetings source
     if (typeof window !== 'undefined') {
       const lastSource = sessionStorage.getItem('todo_last_source');
@@ -37,7 +38,7 @@ export function MasterTodoList({ excludeIds, refreshKey }: MasterTodoListProps) 
   }, []);
 
   useEffect(() => {
-    if (filter !== 'meetings' && filter !== 'projects') {
+    if (filter !== 'meetings' && filter !== 'projects' && filter !== 'relationships') {
       fetchTodos();
     }
   }, [excludeIds, filter]);
@@ -365,6 +366,16 @@ export function MasterTodoList({ excludeIds, refreshKey }: MasterTodoListProps) 
             Meetings
           </button>
             <button
+              onClick={() => setFilter('relationships')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              filter === 'relationships'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            Relationships
+          </button>
+            <button
               onClick={() => setFilter('all')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               filter === 'all'
@@ -408,11 +419,13 @@ export function MasterTodoList({ excludeIds, refreshKey }: MasterTodoListProps) 
         </p>
       </div>
 
-      {/* Meetings Panel, Projects Panel, or Task List */}
+      {/* Meetings Panel, Projects Panel, Relationships Panel, or Task List */}
       {filter === 'meetings' ? (
         <MeetingTasksPanel />
       ) : filter === 'projects' ? (
         <ProjectTasksPanel key={refreshKey} />
+      ) : filter === 'relationships' ? (
+        <RelationshipTasksPanel />
       ) : loading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>

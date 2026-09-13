@@ -103,9 +103,12 @@ export function FollowUpsSection({
               }
             };
 
+            // Toggle to show/hide detailed fields (Status, Priority, Urgency, Due Date)
+            const showDetailedFields = false;
+
             return (
               <div key={idx} className="flex flex-col gap-2 p-3 bg-white rounded border border-gray-200">
-                <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                <div className={`flex items-center gap-2 ${showDetailedFields ? 'pb-2 border-b border-gray-200' : ''}`}>
                   <span className="text-sm text-gray-600 flex-shrink-0">
                     {followUp.date || new Date().toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' })}
                   </span>
@@ -147,7 +150,8 @@ export function FollowUpsSection({
                   </button>
                 </div>
                 
-                {/* Status - Visual Progress Stepper */}
+                {/* Status, Priority, Urgency, Due Date - hidden when showDetailedFields is false */}
+                {showDetailedFields && (<>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500 w-16">Status:</span>
                   <div className="flex items-center gap-2">
@@ -293,6 +297,7 @@ export function FollowUpsSection({
                     className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-500"
                   />
                 </div>
+                </>)}
               </div>
             );
           })}

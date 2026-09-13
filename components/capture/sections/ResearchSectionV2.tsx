@@ -109,7 +109,16 @@ export function ResearchSectionV2({
       
       const data = await response.json();
       if (data.success) {
-        setSavedResults(data.results || []);
+        // Deduplicate results by ID to prevent React key errors
+        const results = data.results || [];
+        const uniqueResults = results.reduce((acc: ResearchResult[], current: ResearchResult) => {
+          const exists = acc.find(item => item.id === current.id);
+          if (!exists) {
+            acc.push(current);
+          }
+          return acc;
+        }, []);
+        setSavedResults(uniqueResults);
       }
     } catch (error) {
       console.error('Error loading research results:', error);
@@ -120,6 +129,12 @@ export function ResearchSectionV2({
 
   const handleAddInterest = async () => {
     console.log('🔍 handleAddInterest called', { newInterest, personId });
+    
+    // Prevent duplicate calls while already processing
+    if (isResearching) {
+      console.warn('⚠️ Already processing, skipping duplicate call');
+      return;
+    }
     
     if (!newInterest.trim()) {
       console.warn('❌ No interest text provided');
@@ -215,6 +230,12 @@ export function ResearchSectionV2({
     const companyToResearch = companyInput.trim() || personCompany;
     console.log('🏢 handleResearchCompany called', { companyToResearch, personId, companyInput });
     
+    // Prevent duplicate calls while already processing
+    if (isResearching) {
+      console.warn('⚠️ Already processing, skipping duplicate call');
+      return;
+    }
+    
     if (!companyToResearch || !personId) {
       console.warn('❌ Missing required data:', { companyToResearch, personId });
       if (!personId) alert('Please load a person first');
@@ -300,6 +321,13 @@ export function ResearchSectionV2({
 
   const handleResearchTechStack = async () => {
     const companyToResearch = techStackInput.trim() || personCompany;
+    
+    // Prevent duplicate calls while already processing
+    if (isResearching) {
+      console.warn('⚠️ Already processing, skipping duplicate call');
+      return;
+    }
+    
     if (!companyToResearch || !personId) return;
 
     // Gather context based on checkboxes

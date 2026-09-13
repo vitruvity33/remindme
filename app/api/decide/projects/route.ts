@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       .from('projects_main')
       .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('order_index', { ascending: true });
 
     if (error) {
       console.error('Error fetching projects:', error);

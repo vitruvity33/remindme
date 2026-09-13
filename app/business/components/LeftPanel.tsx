@@ -257,7 +257,7 @@ export default function LeftPanel({
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           
-          <div className="mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+          <div className="mt-1 bg-gray-50 border border-gray-300 rounded-md h-96 overflow-y-auto p-2">
             {filteredBusinesses.map((biz) => (
               <div
                 key={biz.id}
@@ -265,7 +265,7 @@ export default function LeftPanel({
                   onBusinessSelect(biz);
                   setBusinessSearch('');
                 }}
-                className="p-3 cursor-pointer transition-colors hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                className="mb-2 p-3 h-16 flex flex-col justify-center bg-white border border-gray-200 rounded-lg cursor-pointer transition-colors hover:bg-gray-50 hover:border-gray-300"
               >
                 <div className="font-medium text-sm">{biz.name}</div>
                 {biz.industry && (
